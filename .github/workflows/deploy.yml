@@ -31,6 +31,16 @@ jobs:
           pip install pytest
           pytest tests/ -v
 
+      - name: Debug variable presence
+        run: |
+          echo "Client ID length: ${#CLIENT_ID}"
+          echo "Tenant ID length: ${#TENANT_ID}"
+          echo "Sub ID length: ${#SUB_ID}"
+        env:
+          CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          SUB_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          
       # ── OIDC login MUST come before functions-action ──────────────────────
       - name: Login to Azure (OIDC / Federated Identity Credential)
         uses: azure/login@v2
