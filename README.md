@@ -34,8 +34,11 @@ setup described in [infra/README.md](infra/README.md).  At a high level you need
   - Resource Group: `rg-fic-demo`
   - Storage Account (any name, LRS, Standard)
   - Function App (Python 3.11, Linux, Consumption plan)
-- An **Entra App Registration** with a Federated Identity Credential configured
-  for your GitHub repo's `main` branch.
+- An **Entra App Registration** with two Federated Identity Credentials:
+  - One for the `main` branch (`ref:refs/heads/main`)
+  - One for the `production` environment (`environment:production`) — required
+    because the workflow sets `environment: production`, which changes the JWT
+    subject claim from the branch form to the environment form.
 - The App Registration's service principal assigned **Contributor** on the
   Resource Group.
 - Four **GitHub Variables** added to your repository:
@@ -74,7 +77,7 @@ It covers:
 
 - Part 1 — Resource Group, Storage Account, Function App
 - Part 2 — Entra App Registration
-- Part 3 — Federated Identity Credentials (main branch + pull request)
+- Part 3 — Federated Identity Credentials (main branch + production environment + pull request)
 - Part 4 — RBAC Contributor role assignment
 - Part 5 — GitHub Variables
 - Part 6 — GitHub production environment with optional required reviewers
@@ -144,18 +147,30 @@ A successful response looks like:
 **Symptom:** The `azure/login` step fails with this error code.
 
 **Cause:** The subject identifier in the JWT GitHub issued does not match any
-Federated Credential on the App Registration.  The subject encodes
-`repo:<org>/<repo>:ref:refs/heads/<branch>` — if any part differs from what
-was configured in the portal, the lookup fails.
+Federated Credential on the App Registration.  Azure performs an exact-string
+match — if any part of the subject differs from what was configured, the lookup
+fails.
+
+The most common mismatches:
+
+| Situation | Subject GitHub sends | Credential needed |
+|---|---|---|
+| Push to `main` | `repo:org/repo:ref:refs/heads/main` | Branch → `main` |
+| Workflow uses `environment: production` | `repo:org/repo:environment:production` | **Environment → `production`** |
+| Pull request | `repo:org/repo:pull_request` | Pull request |
 
 **Fix:**
 1. Go to your App Registration → **Certificates & secrets** →
    **Federated credentials**.
-2. Open the credential and check the **Subject identifier** field.
-3. Ensure the org, repo name, and branch all match your GitHub repository
-   exactly (case-sensitive).
-4. If the run was triggered by a pull request, make sure you added a separate
-   PR credential (see infra/README.md Part 3.2).
+2. Check whether a credential with the matching **Subject identifier** exists.
+3. If the workflow job sets `environment: production` (as this repo does),
+   you need a dedicated credential with **Entity type = Environment** and
+   **GitHub environment name = production**.  The branch credential alone is
+   not enough.  Follow Part 3.2 of [infra/README.md](infra/README.md) to add it.
+4. Ensure the org and repo name in every credential match your GitHub
+   repository exactly (case-sensitive).
+5. If the run was triggered by a pull request, add a separate PR credential
+   (see infra/README.md Part 3.3).
 
 ---
 

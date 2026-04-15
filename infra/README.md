@@ -130,9 +130,50 @@ Registration authenticated successfully."
      to prevent token replay attacks across different services.
 7. Click **Add**.
 
-### 3.2 Add a second credential for Pull Requests (optional but recommended)
+### 3.2 Add a credential for the `production` environment (required)
 
-Repeat the steps above with:
+The workflow YAML contains `environment: production`.  When a job targets a
+named GitHub Environment, GitHub changes the JWT subject claim from the branch
+form to the environment form:
+
+```
+# Without environment:
+repo:myorg/github-actions-fic-demo:ref:refs/heads/main
+
+# With environment: production:
+repo:myorg/github-actions-fic-demo:environment:production
+```
+
+These two strings are **different**, so the `main` branch credential created in
+3.1 will **not** match and Azure will reject the token with
+`AADSTS70021: No matching federated identity record found`.
+
+Add a separate credential for the environment:
+
+1. From the App Registration, click **Certificates & secrets** →
+   **Federated credentials** → **+ Add credential**.
+2. Select **GitHub Actions deploying Azure resources**.
+3. Fill in the GitHub fields:
+   | Field | Value |
+   |---|---|
+   | Organization | Your GitHub username or org, e.g. `myorg` |
+   | Repository | `github-actions-fic-demo` |
+   | Entity type | **Environment** |
+   | GitHub environment name | `production` |
+   | Name | `github-environment-production` |
+   | Description | `Allows GitHub Actions running in the production environment` |
+4. Confirm the auto-populated **Subject identifier** reads:  
+   `repo:myorg/github-actions-fic-demo:environment:production`
+5. Click **Add**.
+
+> **Why is this separate from the branch credential?**  
+> Azure performs an exact-string match on the subject claim.  A single
+> credential cannot cover both the branch form and the environment form.
+> Each distinct subject pattern needs its own Federated Credential entry.
+
+### 3.3 Add a credential for Pull Requests (optional but recommended)
+
+Repeat the steps from 3.1 with:
 | Field | Value |
 |---|---|
 | Entity type | **Pull request** |
